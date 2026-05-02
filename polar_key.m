@@ -1,0 +1,107 @@
+function polar_key()
+tic;                  % start time
+%% Parameters
+N = 1024;
+K = 250;
+R = K/N;                          % code rate
+%EbN0_range = 1:0.5:2.5;
+%SNR_dB_range = EbN0_range + 10*log10(R);
+IS_SC = false ;
+GA_CRC_Length = 0 ;
+seed = 42;
+rng(seed);     % set the seed
+SNR_dB = 4.4;
+EbN0 = SNR_dB - 10*log10(R);
+target_BLER = 0.01;
+min_errors = 50;
+num_trials_per_snr = min_errors/target_BLER;  % Increase for more accuracy
+num_simulations = 100;
+L = 2;
+output_dir = sprintf( 'Key_Length_SCL_%d_%.1f_%d_trials_BSC_Hard_%d.mat',L, SNR_dB, num_simulations, N);
+filename = sprintf('SNR_4.4_BSC_HARD_1024.mat');
+data = load(filename);
+frozen_indicator = data.frozen_indicator;
+ber_vec = data.ber_vec;
+bit_order = data.bit_order;
+VALID_STATISTICS = data.VALID_STATISTICS;
+frozen_mask = (frozen_indicator == 1);
+%[~, order] = sort(ber_vec, 'descend');    % order = מיקום הביטים בסדר ההקפאה
+ber_sorted = sort(ber_vec);
+%ber_sorted = ber_vec(order);              % BER במיון יורד
+plot_key_length_probability_from_sorted_ber(ber_sorted);
+for sim = 1:num_simulations
+    if mod(sim, 5) == 0
+        fprintf('Trial %d/%d\n', sim, num_simulations);
+    end
+    frozen_indicator = zeros(1, N);   % vector of length N
+    U_Vec = randi([0, 1], 1, N);
+    u = U_Vec;
+    % --- Encode
+    x = polar_encoder(u);
+    bpsk_x = 1 - 2 * x;
+
+    % --- Noise
+    SNR_linear = 10^(SNR_dB / 10);
+    Sigma = sqrt(1 / (2 * SNR_linear));
+    noise = Sigma * randn(1, N);
+    Y = bpsk_x + noise;
+
+    % --- LLR
+    %Lambda = AWGN_BPSK_LLR(Y, Sigma);
+    Lambda = BSC_BPSK_LLR_HARD(Y,SNR_dB, Sigma);
+    % --- Decode
+    if IS_SC == true
+        L=1;
+        [Estimated_U,~,~] = SC_Decoder(Lambda, u, N, frozen_indicator, false);
+    else 
+        [Estimated_U,~] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y,u,Sigma,SNR_dB,frozen_indicator);
+    end 
+    index = 1;
+    while (index<25)
+        frozen_bit_to_show = bit_order(index);
+        frozen_indicator(frozen_bit_to_show) = 1;
+        index = index + 1;  % Increment index to show the next frozen bit
+    end
+    while any(Estimated_U ~= u) 
+        frozen_bit_to_show = bit_order(index);
+        frozen_indicator(frozen_bit_to_show) = 1;
+        if IS_SC == true
+            [Estimated_U,~,~] = SC_Decoder(Lambda, u, N, frozen_indicator, false);
+        else    
+            [Estimated_U,~] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y,u,Sigma,SNR_dB,frozen_indicator);
+        end 
+        index = index + 1;  % Increment index to show the next frozen bit
+        if (index > VALID_STATISTICS)
+            index = N;
+            Estimated_U = u;
+        end 
+    end
+   
+    
+    % --- Histogram of (N - index)
+    key_length = N - index - log2(L);  % Calculate the length
+    key_length_count2(sim) = key_length;  % Store the number of errors for each simulation
+    
+end
+elapsedTime = toc;    % stop timer and return elapsed seconds
+fprintf('Elapsed time: %.3f seconds\n', elapsedTime);
+
+% Calculate the average number of errors
+average_errors = mean(N-key_length_count2);
+save(output_dir,'key_length_count2')
+% Plot the histogram
+figure;
+histogram(key_length_count2,N ,'Normalization', 'probability');
+title('key length vs probability ');
+xlabel('key length');
+ylabel('Probability');
+grid on;
+
+% ---- save figure ----
+savefig(gcf, [output_dir '.fig']);                     % MATLAB editable
+exportgraphics(gcf, [output_dir ...
+    '.png'], 'Resolution', 300);  % High-quality image
+
+% Display the average number of errors
+disp(['Average Number of Errors: ', num2str(average_errors)]);
+end

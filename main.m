@@ -1,0 +1,254 @@
+function main()
+tic;                  % start time
+%% Parameters
+N = 1024;
+K = 512;
+R = K/N;                          % code rate
+L = 32;                            % List sizq (for SCL only)
+GA_CRC_Length = 0;
+IS_SC = false;
+seed = 42;
+rng(seed);     % set the seed
+Is_Valid_Statistics = false(1,N);
+SNR_dB_range = 0:2:0.5;     
+EbN0_range = SNR_dB_range - 10*log10(R);
+target_BLER = 0.0001;
+min_errors = 100;
+num_trials_per_snr = min_errors/target_BLER;  % Increase for more accuracy
+ber1 = zeros(size(SNR_dB_range));
+bler1 = zeros(size(SNR_dB_range));
+ber2 = zeros(size(SNR_dB_range));
+bler2 = zeros(size(SNR_dB_range));
+SNRdB = 4.4;
+EbN0  = SNRdB - 10*log10(R);          % example Eb/N0 in dB
+
+%fprintf('Estimating frozen bits only once at SNR = 3 dB...\n');
+%[~,~,frozen_indicator] = estimate_frozen_bits_position(N, K, 0.1,10,3);  % You can increase this
+% Estimate frozen bits - returns boolean indicator
+
+% frozen_indicator is now a boolean vector of length N
+% frozen_indicator(i) = true means bit i is frozen
+% frozen_indicator(i) = false means bit i carries information
+
+% Test with simple pattern
+%N = 16 ;
+%U_Vec = zeros(1, N);
+%U_Vec(N) = 0;  % Only bit 2048 is 1
+%encoded = polar_encoder(U_Vec);
+%[Estimated_U, ~, ~] = SC_Decoder(1-2*encoded, U_Vec, N, zeros(1,N), true);
+%fprintf('Input bit 2048: %d, Decoded bit 2048: %d\n', U_Vec(N), Estimated_U(N));
+
+%frozen_bits = test(N, K, 3, num_trials)
+IS_AWGN = false;
+% [frozen_indicator, ber_vec, bit_order] = estimate_frozen_bits(N, K, target_BLER, min_errors, SNRdB, EbN0, IS_AWGN);
+% fprintf('Frozen indicator = %.1f dB...\n', frozen_indicator);
+% fprintf('BER vector= %.6f ...\n', ber_vec);
+% fprintf('Bit order = %.1f ...\n', bit_order);
+% fprintf('Simulating for Eb/N0 = %.1f dB...\n', EbN0);
+% check_validity = false;
+% if sum(ber_vec>(30/num_trials_per_snr))
+%     check_validity = true;
+% end
+% if check_validity == false
+%     error('Not enough statistics');
+% end
+% for Is_valid = 1:length(Is_Valid_Statistics)
+%     error_count = ber_vec(Is_valid) * num_trials_per_snr;
+%     if error_count > 30
+%         Is_Valid_Statistics(Is_valid) = true;
+%     end 
+% end 
+% %Logical masks
+% VALID_STATISTICS = sum(Is_Valid_Statistics);
+% frozen_mask = (frozen_indicator == 1);
+% info_mask = (frozen_indicator == 0);
+% %Logical mask of info‐bit positions
+% %1) Sum of BER over all info bits
+% sum_info_ber = sum( ber_vec(info_mask) );
+% 
+% %2) Highest (max) BER among info bits
+% max_info_ber = max( ber_vec(info_mask) );
+% min_frozen_ber = min( ber_vec(frozen_mask) );
+% save('SNR_4.4_BSC_HARD_1024.mat', 'ber_vec', 'bit_order', 'frozen_indicator', 'VALID_STATISTICS');
+%SCL_Frozen_Indexes_Numbers_Vec = SCL_Frozen_Bits(ber_vec, Is_Valid_Statistics,K, L, 'LLR', true);
+%save('EbN0_1.0_dB_AWGN_SCL_L=32_CRC=0_LLR.mat', 'ber_vec', 'bit_order', 'frozen_indicator','SCL_Frozen_Indexes_Numbers_Vec');
+%save('EbN0_-1_dB_BSC.mat', 'ber_vec', 'bit_order', 'frozen_indicator');
+% 
+
+%% Loop over SNR values
+    for SNR = 1:length(SNR_dB_range)
+        SNR_dB = SNR_dB_range(SNR);
+        EbN0  = SNR_dB_range(SNR) - 10*log10(R);          % example Eb/N0 in dB
+        %if SNR == 1.5
+        %    num_trials_per_snr = 40000;
+        %end
+        total_errors1 = 0;
+        total_errors2 = 0;
+        total_bits = 0;
+        block_errors1 = 0;
+        block_errors2 = 0;
+        total_blocks = 0;
+        fprintf('SNR = %f \n', SNR_dB);
+        fprintf('Eb/N0 = %f \n', EbN0);
+        %filename2 = sprintf('EbN0_%0.1f_dB_BSC_R_0.25.mat', EbN0);
+        try
+            % Code that may cause an error
+            filename1 = sprintf('EbN0_%0.1f_dB_AWGN_SCL_L=32_CRC=0_MI.mat', EbN0);
+            %filename1 = sprintf('Is_Frozen_Bit_Vec_MI.mat', EbN0);
+            data1 = load(filename1);
+        catch ME
+            filename1 = sprintf('EbN0_%0.2f_dB_AWGN_SCL_L=32_CRC=0_MI.mat', EbN0);
+            data1 = load(filename1);
+        end
+        %frozen_indicator1 = data1.frozen_indicator;
+        %ber_vec1 = data1.ber_vec;
+        %bit_order1 = data1.bit_order;
+        SCL_Frozen_Indexes_Numbers_Vec =data1;
+        % SCL_Frozen_Indexes_Numbers_Vec_1 = SCL_Frozen_Indexes_Numbers_Vec.Is_Frozen_Bit_Vec(1,:);
+        % SCL_Frozen_Indexes_Numbers_Vec_2 = SCL_Frozen_Indexes_Numbers_Vec.Is_Frozen_Bit_Vec(2,:);
+        % SCL_Frozen_Indexes_Numbers_Vec_3 = SCL_Frozen_Indexes_Numbers_Vec.Is_Frozen_Bit_Vec(3,:);
+        % SCL_Frozen_Indexes_Numbers_Vec_4 = SCL_Frozen_Indexes_Numbers_Vec.Is_Frozen_Bit_Vec(4,:);
+        % SCL_Frozen_Indexes_Numbers_Vec_5 = SCL_Frozen_Indexes_Numbers_Vec.Is_Frozen_Bit_Vec(5,:);
+        % SCL_Frozen_Indexes_Numbers_Vec_6 = SCL_Frozen_Indexes_Numbers_Vec.Is_Frozen_Bit_Vec(6,:);
+
+        %SCL_Frozen_Indexes_Numbers_Vec_2 = SCL_Frozen_Indexes_Numbers_Vec(2,:);    % extract row
+        %SCL_Frozen_Indexes_Numbers_Vec_3 = SCL_Frozen_Indexes_Numbers_Vec(3,:);    % extract row
+        %SCL_Frozen_Indexes_Numbers_Vec_4 = SCL_Frozen_Indexes_Numbers_Vec(4,:);    % extract row
+        %SCL_Frozen_Indexes_Numbers_Vec_5 = SCL_Frozen_Indexes_Numbers_Vec(5,:);    % extract row
+        %frozen_bits_indicator = zeros(1, N);
+        %frozen_bits_indicator = SCL_Frozen_Indexes_Numbers_Vec_1;
+        %frozen_positions = SCL_Frozen_Indexes_Numbers_Vec_1(1:N-K);  % Select N-K worst bits
+        frozen_bits_indicator(frozen_positions) = 1;
+        %info_mask = (frozen_bits_indicator == 0);
+        %data2 = load(filename2);
+        %frozen_indicator2 = data2.frozen_indicator;
+        %ber_vec2 = data2.ber_vec;
+        %bit_order2 = data2.bit_order;
+        for trial = 1:num_trials_per_snr
+            if mod(trial, 500) == 0
+                fprintf('Trial %d/%d\n', trial, num_trials_per_snr);
+            end
+            % --- Information bits
+            % info_bits = randi([0 1], 1, K);
+    
+            % --- Place in full vector
+            u = zeros(1, N);
+            %Is_Frozen_Bit_Index_Vec  = zeros(1, N);
+            %Is_Frozen_Bit_Index_Vec(frozen_indicator(1:K)) = 1;  % Mark info bits positions as 0
+            %fprintf('is frozen bit vector = %f \n', Is_Frozen_Bit_Index_Vec);
+            % Logical mask of info‐bit positions:
+            %info_mask1 = (frozen_indicator1 == 0);
+            %info_mask2 = (frozen_indicator2 == 0);
+            % Now assign:
+            % u1(info_mask) = info_bits1;
+            % u2(info_mask) = info_bits2;
+            U_Vec = randi([0, 1], 1, N);
+            u1 = U_Vec;
+            u2 = U_Vec;
+            % --- Encode
+            x1 = polar_encoder(u1);
+            bpsk_x1 = 1 - 2 * x1;
+            %x2 = polar_encoder(u2);
+            %bpsk_x2 = 1 - 2 * x2;
+    
+            % --- Noise
+            SNR_linear = 10^(SNR_dB / 10);
+            Sigma = sqrt(1 / (2 * SNR_linear));
+            noise = Sigma * randn(1, N);
+            Y1 = bpsk_x1 + noise;
+
+            noise = Sigma * randn(1, N);
+            Y2 = bpsk_x2 + noise;
+
+            % --- LLR
+            Lambda1 = AWGN_BPSK_LLR(Y1, Sigma);
+            Lambda2 = BSC_BPSK_LLR(Y2, EbN0);
+            %fprintf('LLR = %d \n', Lambda)
+    
+    
+            % --- Decode
+            if IS_SC == true
+                [Estimated_U1,~,~] = SC_Decoder(Lambda1, u1, N, frozen_indicator1, false);
+                %[Estimated_U2,~,~] = SC_Decoder(Lambda2, u2, N, frozen_indicator2, false);
+            %[Estimated_U,~,~] = SC_Decoder(Lambda, u, N,zeros(size(frozen_indicator)) , true);
+            else    
+                [Estimated_U1,~] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y1,u1,Sigma,SNR_dB,frozen_bits_indicator);
+                %[Estimated_U2,~] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y2,u2,Sigma,frozen_indicator2);
+            end 
+            % Estimated_Info1 = Estimated_U1(info_mask1);
+            % Estimated_Info2 = Estimated_U2(info_mask2);
+            %Estimated_U_Hard = llr_to_hard(Lambda);
+    
+            % Inverse over GF(2) is the same as forward:
+            %u_hat = polar_encoder(Estimated_U_Hard)
+            % --- Count errors
+            num_errors1 = sum(Estimated_U1 ~= u1);
+            total_errors1 = total_errors1 + num_errors1;
+            %num_errors2 = sum(Estimated_U2 ~= u2);
+            %total_errors2 = total_errors2 + num_errors2;
+            total_bits = total_bits + K;
+            total_blocks = total_blocks + 1;
+            % Check for block error (any bit wrong = block error)
+            if any(Estimated_U1 ~= u1)
+                block_errors1 = block_errors1 + 1;
+            end
+            % if any(Estimated_U2 ~= u2)
+            %     block_errors2 = block_errors2 + 1;
+            % end
+        end
+        ber1(SNR) = total_errors1 / total_bits;
+        bler1(SNR) = block_errors1/ num_trials_per_snr;
+        % ber2(SNR) = total_errors2 / total_bits;
+        % bler2(SNR) = block_errors2/ num_trials_per_snr;
+        %fprintf('Estimated bits = %d\n', u_hat);
+        %fprintf('u = %d\n ', u);
+        fprintf('total bits error1 = %d \n', total_errors1);
+        fprintf('bler = %d \n', bler1);
+        % fprintf('total bits error2 = %d \n', total_errors2);
+        num_trials_per_snr = num_trials_per_snr*10;
+    end
+    
+    %% Plot BER vs SNR
+    figure;
+    semilogy(EbN0_range, ber1, 'b-','LineWidth',2);
+    hold on;
+    %semilogy(EbN0_range, ber2, 'r--','LineWidth',2);
+    grid on;
+    xlabel('SNR ((Eb/N0)) dB');
+    ylabel('Bit Error Rate (BER)');
+    title(sprintf('Polar Code (N=%d, K=%d)', N, K));
+    %% Plot BLER vs SNR
+    figure;
+    semilogy(EbN0_range, bler1, 'b-','LineWidth',2);
+    hold on;
+    %semilogy(EbN0_range, bler2, 'r--','LineWidth',2);
+    grid on;
+    xlabel('SNR (Eb/N0) dB');
+    ylabel('BLER');
+    title(sprintf('Polar Code SCL DECODER with L=32 and CRC Length=0 Line 3 in MI MODE(N=%d, K=%d)', N, K));
+    if bler1 * num_trials_per_snr< 30
+        error('Not enough statistics');
+    end
+    savefig('1.5_dB_SCL_L=32_CRC=0_new_frozen_line6_LLR.fig');
+    elapsedTime = toc;    % stop timer and return elapsed seconds
+    fprintf('Elapsed time: %.3f seconds\n', elapsedTime);
+
+% % Plot BER per bit index, color by frozen/info
+% figure; hold on;
+% idx = 1:N;
+% 
+% % Display results
+% % fprintf('Sum of info‐bit BER = %.5e\n', sum_info_ber);
+% % fprintf('Highest info‐bit BER = %.5e\n', max_info_ber);
+% % fprintf('Lowest frozen‐bit BER = %.5e\n', min_frozen_ber);
+% 
+% plot(idx(info_mask), ber_vec(info_mask), 'b.');
+% plot(idx(frozen_bits_indicator), ber_vec(frozen_bits_indicator), 'r.');
+% 
+% xlabel('Bit index');
+% ylabel('Estimated BER');
+% legend('Location','best');
+% title('Per‐bit BER with Frozen vs. Info Bits');
+% grid on;
+% hold off;
+end

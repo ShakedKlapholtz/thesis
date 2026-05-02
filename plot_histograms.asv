@@ -1,0 +1,83 @@
+function plot_single_histogram(file_path, field_name, existing_fig_path, N)
+    % Reads a CSV file and plots a histogram for a single specified column.
+    %
+    % Args:
+    %   file_path (char): The path to the CSV file.
+    %   field_name (char): The name of the column (string) to plot a histogram for.
+
+    try
+        % Read the CSV file into a table
+        T = readtable(file_path);
+        % Extract data from the existing histogram in the FIG file
+        % Open the FIG file invisibly to extract data
+        fig = openfig(existing_fig_path, 'invisible');
+        ax = gca(fig); % Get the current axes from the figure
+        
+        % Find the histogram object within the axes
+        h_existing = findobj(ax, 'Type', 'histogram');
+        if isempty(h_existing)
+            fprintf('Error: No histogram object found in the existing figure.\n');
+            close(fig); % Close the invisible figure
+            return;
+        end
+        if ismember(field_name, T.Properties.VariableNames)
+            data = (N - T.(field_name)); % Access data using dot notation
+
+            % Create a new figure window and plot the histogram
+            figure;
+            histogram(data, 'BinWidth', 1);
+            title(sprintf('Frequency Histogram of %s', strrep(field_name, '_', '\_'))); % Use strrep to display underscores
+            xlabel('Key Length');
+            ylabel('Frequency');
+            grid on;
+        else
+            fprintf('Error: Field ''%s'' not found in the CSV file.\n', field_name);
+        end
+        % Extract the counts and bin edges
+        existingCounts = h_existing.BinCounts;
+        existingEdges = h_existing.BinEdges;
+
+        close(fig); % Close the invisible figure after data extraction
+
+        % Create the combined plot
+        figure;
+        hold on; % Allows plotting multiple graphs on the same Axes
+    
+        % Plot the first histogram (from the existing FIG)
+        % Use 'bar' as we are plotting manual counts, not raw data
+        bar(existingEdges(1:end-1), existingCounts, 'FaceColor', [0.8 0.8 1], 'EdgeColor', 'b', 'DisplayName', 'Polar'); % Lighter color with blue edge
+    
+        % Plot the second histogram (from the new CSV)
+        % Use 'histogram' with BinWidth=1 and a different color for identification
+        % Use FaceAlpha for transparency for easier distinction
+        h_new = histogram(data, 'BinWidth', 1, 'FaceColor', [1 0.8 0.8], 'FaceAlpha', 0.6, 'EdgeColor', 'r', 'DisplayName', 'Cascade');
+    
+        title('Polar vs Cascade histogram comparison for code Lengnt = 256 and error probabillity = 0.05');
+        xlabel('Key Length');
+        ylabel('Frequency');
+        legend show; % Display the legend
+        grid on;
+        hold off; % End Hold On mode
+        % Check if the specified field exists in the table
+
+
+    catch ME
+        fprintf('An error occurred: %s\n', ME.message);
+    end
+end
+
+% Example usage:
+% Replace 'your_data.csv' with the actual path to your CSV file
+file_path = "\\wsl.localhost\Ubuntu-22.04\home\shaked\shake-on-it\cascade_reconcile_p_0.050_runs.csv";
+field_to_plot = 'reply_parity_bits'; % The specific parameter name
+file_path_fig = "C:\Users\ASUS\Documents\MATLAB\Key_Length_256_SCL_L=32_1.3_100_trials_BSC.fig";
+N = 256;
+% Call the function
+plot_single_histogram(file_path, field_to_plot, file_path_fig, N);
+
+
+% Example usage (change file names as appropriate for your files):
+% file_path_csv = 'your_new_data.csv';
+% field_to_plot = 'reply_parity_bits';
+% 
+% combine_histograms(file_path_csv, field_to_plot, file_path_fig);

@@ -1,0 +1,163 @@
+function [frozen_bits_indicator, BER_per_bit, frozen_bits_order] = estimate_frozen_bits(N, K, target_BLER, min_errors, SNR_dB, EbN0, IS_AWGN)
+% ESTIMATE_FROZEN_BITS Estimates frozen bit positions for polar codes
+%
+% Inputs:
+%   N            - Code length (must be power of 2)
+%   K            - Number of information bits
+%   target_BLER  - Target BLER (e.g., 0.01 for 1%)
+%   min_errors   - Minimum number of errors for good statistics (e.g., 30)
+%   SNR_dB       - Signal-to-noise ratio in dB
+%
+% Outputs:
+%   frozen_bits_indicator - Binary vector of length N indicating frozen positions (1 = frozen, 0 = info)
+%   BER_per_bit          - BER vector for each bit position
+%   frozen_bits_order    - Bit indices ordered from highest BER to lowest
+%
+% Usage example:
+% [frozen_indicator, ber_vec, order] = estimate_frozen_bits(16, 8, 0.01, 30, 2, @my_encoder);
+
+if nargin < 5
+    error('Encoder function handle is required');
+end
+
+if K > N
+    error('K must be less than N');
+end
+
+% Calculate required number of trials
+num_trials = ceil(min_errors / target_BLER);
+fprintf('Running %d Monte Carlo trials to get at least %d errors\n', num_trials, min_errors);
+
+% Initialize bit error counter for each position
+bit_errors = zeros(1, N);
+
+% Convert SNR to noise variance
+sigma2 = 1 / (2 * 10^(SNR_dB/10));
+
+% Empty frozen bits vector for learning phase (all bits are "active")
+Is_Frozen_Bit_Index_Vec = zeros(1, N);
+
+fprintf('Starting Monte Carlo simulation...\n');
+
+for trial = 1:num_trials
+    if mod(trial, 500) == 0
+        fprintf('Trial %d/%d\n', trial, num_trials);
+    end
+    
+    % Generate random word
+    U_Vec = randi([0, 1], 1, N);
+    
+    % Encode the word
+    encoded_bits = polar_encoder(U_Vec);
+    
+    % BPSK modulation: 0 -> +1, 1 -> -1
+    modulated = 1 - 2 * encoded_bits;
+    
+    % Add AWGN noise
+    noise = sqrt(sigma2) * randn(1, N);
+    received = modulated + noise;
+    
+    % Calculate LLR for BPSK
+    %LLR_Vec = 2 * received / sigma2;
+    if IS_AWGN == true
+        LLR_Vec = AWGN_BPSK_LLR(received, sqrt(sigma2));
+    else
+        LLR_Vec = BSC_BPSK_LLR_HARD(received, SNR_dB, sqrt(sigma2));
+    end 
+    % Decode using your function - learning phase (genie aided)
+    [Estimated_U, ~, ~] = SC_Decoder(LLR_Vec, U_Vec, N, Is_Frozen_Bit_Index_Vec, true);
+    
+    % Count errors for each bit
+    bit_errors = bit_errors + (U_Vec ~= Estimated_U);
+end
+
+% Calculate BER for each bit
+BER_per_bit = bit_errors / num_trials;
+
+% Sort bits by BER (descending - from highest to lowest)
+[sorted_BER, frozen_bits_order] = sort(BER_per_bit, 'descend');
+%fprintf('Sorted BER: %d\n', sorted_BER);
+
+% Create frozen bits indicator vector
+frozen_bits_indicator = zeros(1, N);
+frozen_positions = frozen_bits_order(1:N-K);  % Select N-K worst bits
+frozen_bits_indicator(frozen_positions) = 1;
+
+fprintf('\nFrozen bits estimation complete.\n');
+fprintf('Total errors found: %d\n', sum(bit_errors));
+fprintf('Empirical BLER: %.4f\n', sum(any(reshape(bit_errors > 0, [], 1))) / num_trials);
+fprintf('Selected %d frozen bits (positions): ', N-K);
+fprintf('%d ', frozen_positions);
+fprintf('\n');
+
+% Display results
+fprintf('\nTop %d bits with highest BER (frozen):\n', min(10, N-K));
+for i = 1:min(10, N-K)
+    fprintf('Position %d: BER = %.4f\n', frozen_bits_order(i), sorted_BER(i));
+end
+
+if N-K > 10
+    fprintf('...\n');
+end
+
+end
+
+% Function to test performance with frozen bits
+function BLER = test_polar_code_performance(N, K, frozen_bits, SNR_dB, num_test_trials)
+% Test polar code performance with given frozen bits
+%
+% Inputs:
+%   N               - Code length
+%   K               - Number of information bits
+%   frozen_bits     - Indices of frozen bits
+%   SNR_dB          - SNR in dB
+%   num_test_trials - Number of test trials
+%
+% Output:
+%   BLER - Block Error Rate
+
+if nargin < 5
+    num_test_trials = 1000;
+end
+
+% Create frozen bits vector
+Is_Frozen_Bit_Index_Vec = zeros(1, N);
+Is_Frozen_Bit_Index_Vec(frozen_bits) = 1;
+
+% Initialize
+block_errors = 0;
+sigma2 = 1 / (2 * 10^(SNR_dB/10));
+
+fprintf('Testing performance with %d trials...\n', num_test_trials);
+
+for trial = 1:num_test_trials
+    % Generate random information bits
+    info_bits = randi([0, 1], 1, K);
+    
+    % Create full word with frozen bits
+    U_Vec = zeros(1, N);
+    info_positions = find(~Is_Frozen_Bit_Index_Vec);
+    U_Vec(info_positions) = info_bits;
+    
+    % Encode
+    encoded_bits = polar_encoder(U_Vec);
+    
+    % Modulation and noise
+    modulated = 1 - 2 * encoded_bits;
+    noise = sqrt(sigma2) * randn(1, N);
+    received = modulated + noise;
+    LLR_Vec = 2 * received / sigma2;
+    
+    % Regular decoding (not genie aided)
+    [Estimated_U, ~, ~] = SC_Decoder(LLR_Vec, zeros(1,N), N, Is_Frozen_Bit_Index_Vec, false);
+    
+    % Check for block error
+    if any(U_Vec ~= Estimated_U)
+        block_errors = block_errors + 1;
+    end
+end
+
+BLER = block_errors / num_test_trials;
+fprintf('BLER: %.4f (%d/%d)\n', BLER, block_errors, num_test_trials);
+
+end

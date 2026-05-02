@@ -1,0 +1,22 @@
+function lambda_BSC = BSC_BPSK_LLR(Y,EbN0)
+            
+% Inputs:
+%   symbols    - Vector of received BPSK symbols (+1/-1)
+%   EbN0_dB    - Energy per bit to noise ratio in dB
+%
+% Output:
+%   LLR        - Vector of log-likelihood ratios
+
+    % Convert Eb/N0 from dB to linear
+    EbN0_Lin = 10.^(EbN0/10);
+    
+    % Compute error probability
+    Pe = qfunc(sqrt(2*EbN0_Lin));
+
+    % Compute reliability factor: ln((1-Pe)/Pe)
+    reliability = log((1-Pe)./Pe);
+
+    % Compute LLRs
+    lambda_BSC = reliability .* Y;
+end
+ 
