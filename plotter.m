@@ -1,13 +1,13 @@
 %% PARAMETERS
-N = 256;
-cascade_block = 73;
-I_4 =6.47;
-p = 0.01; % Define the probability for the cascade
+N = 4096;
+cascade_block = 14;
+I_4 = 4.6;
+p = 0.05; % Define the probability for the cascade
 
-file_path_csv = "\\wsl.localhost\Ubuntu-22.04\home\shaked\shake-on-it\cascade_reconcile_p_0.10_256_runs.csv";
+file_path_csv = "\\wsl.localhost\Ubuntu-22.04\home\shaked\shake-on-it\cascade_reconcile_p_0.05_4096_runs.csv";
 field_name    = 'reply_parity_bits';
 
-file_path_fig = "C:\Users\ASUS\Documents\MATLAB\Key_Length_256_SCL_L=32_-0.8_100_trials_BSC.fig";
+file_path_fig = "C:\Users\ASUS\Documents\MATLAB\Key_Length_SCL_64_1.4_100_trials_BSC_Hard_4096.mat.fig";
 
 %% ===============================
 %  LOAD CASCADE DATA (CSV)

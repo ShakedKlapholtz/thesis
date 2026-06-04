@@ -6,15 +6,18 @@ N = 2048;
 K = 1024;
 R = K/N;
 
-SNR_dB_range = -2.01:0.25:-1.25;
-num_trials_per_snr = 10;
+SNR_dB_range = -2.01:0.5:1.52;
+num_trials_per_snr = 200;
 
 IS_SC = false;
-L = 32;
+L = 1;
 GA_CRC_Length = 0;
 
 bler1 = zeros(size(SNR_dB_range)); % AWGN
 bler2 = zeros(size(SNR_dB_range)); % BSC
+
+ber1 = zeros(size(SNR_dB_range));
+ber2 = zeros(size(SNR_dB_range));
 
 %% ===== Loop over SNR values =====
 for SNR = 1:length(SNR_dB_range)
@@ -24,7 +27,7 @@ for SNR = 1:length(SNR_dB_range)
     EbN0_lin = 10^(EbN0/10);
 
     % Correct sigma
-    Sigma = sqrt(1/(2*R*EbN0_lin));
+    Sigma = sqrt(1 / (2 * 10^(SNR_dB/10)));
 
     % BSC crossover probability
     p = qfunc(sqrt(2*R*EbN0_lin));
@@ -41,15 +44,22 @@ for SNR = 1:length(SNR_dB_range)
     %% ===== Load frozen set per SNR (your logic preserved) =====
     try
         filename1 = sprintf('EbN0_%0.1f_dB_AWGN_SCL_L=32_CRC=0.mat', EbN0);
+        filename1 = sprintf('EbN0_%0.1f_dB_AWGN.mat', EbN0);
+        filename2 = sprintf('EbN0_%0.1f_dB_BSC.mat', EbN0);
+        
         data1 = load(filename1);
+        data2 = load(filename2);
     catch
         filename1 = sprintf('EbN0_%0.2f_dB_AWGN_SCL_L=32_CRC=0.mat', EbN0);
+        filename1 = sprintf('EbN0_2.5_dB_AWGN.mat', EbN0);
+        filename2 = sprintf('EbN0_%0.2f_dB_BSC.mat', EbN0);
         data1 = load(filename1);
+        data2 = load(filename2);
     end
 
     % ===== ADJUST THIS LINE BASED ON YOUR FILE =====
-    frozen_bits_indicator = data1.frozen_indicator;
-
+    frozen_bits_indicator1 = data1.frozen_indicator;
+    frozen_bits_indicator2 = data2.frozen_indicator;
     %% ===== Monte Carlo =====
     for trial = 1:num_trials_per_snr
 
@@ -58,49 +68,58 @@ for SNR = 1:length(SNR_dB_range)
         end
 
         %% Generate valid u (respect frozen bits)
-        u = zeros(1,N);
+        u1 = zeros(1,N);
+        u2 = zeros(1,N);
         info_bits = randi([0 1],1,K);
-        u(frozen_bits_indicator==0) = info_bits;
+        u1(frozen_bits_indicator1==0) = info_bits;
+        u2(frozen_bits_indicator2==0) = info_bits;
 
         %% Encode
-        x = polar_encoder(u);
-        s = 1 - 2*x;
+        x1 = polar_encoder(u1);
+        s1 = 1 - 2*x1;
+        x2 = polar_encoder(u2);
+        s2 = 1 - 2*x2;
 
-        %% ===== ONE shared channel =====
+        %% ===== noise shared channel =====
         noise = Sigma * randn(1,N);
-        Y = s + noise;
+        Y1 = s1 + noise;
+        Y1 = Y1(:)';
+        Y2 = s2 + noise;
+        Y2 = Y2(:)';
 
         %% ===== LLRs =====
-        Lambda1 = AWGN_BPSK_LLR(Y, Sigma);
+        Lambda1 = AWGN_BPSK_LLR(Y1, Sigma);
+        Lambda1 = Lambda1(:)'; % Force 1xN
 
-        Y_hard = (Y < 0);
+        Y_hard = (Y2 < 0);
         Lambda2 = BSC_BPSK_LLR_HARD(Y_hard, SNR_dB , p);
+        Lambda2 = Lambda2(:)'; % Force 1xN
 
         %% ===== Decode =====
         if IS_SC
-            [Estimated_U1,~,~] = SC_Decoder(Lambda1, u, N, frozen_bits_indicator, false);
-            [Estimated_U2,~,~] = SC_Decoder(Lambda2, u, N, frozen_bits_indicator, false);
+            [Estimated_U1,~,~] = SC_Decoder(Lambda1, u1, N, frozen_bits_indicator1, false);
+            [Estimated_U2,~,~] = SC_Decoder(Lambda2, u2, N, frozen_bits_indicator2, false);
         else
             % AWGN
-            [Estimated_U1,~] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y,u,Sigma,SNR_dB,frozen_bits_indicator,'AWGN');
+            [Estimated_U1,~] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y1,u1,Sigma,SNR_dB,frozen_bits_indicator1,'AWGN');
             
             % BSC
-            [Estimated_U2,~] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y,u,Sigma,SNR_dB,frozen_bits_indicator,'BSC');
+            [Estimated_U2,~] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y2,u2,Sigma,SNR_dB,frozen_bits_indicator2,'BSC');
         end
 
         %% Errors
-        num_errors1 = sum(Estimated_U1 ~= u);
-        num_errors2 = sum(Estimated_U2 ~= u);
+        num_errors1 = sum(Estimated_U1 ~= u1);
+        num_errors2 = sum(Estimated_U2 ~= u2);
 
         total_errors1 = total_errors1 + num_errors1;
         total_errors2 = total_errors2 + num_errors2;
-        total_bits = total_bits + K;
+        total_bits = total_bits + N;
 
-        if any(Estimated_U1 ~= u)
+        if any(Estimated_U1 ~= u1)
             block_errors1 = block_errors1 + 1;
         end
 
-        if any(Estimated_U2 ~= u)
+        if any(Estimated_U2 ~= u2)
             block_errors2 = block_errors2 + 1;
         end
 
@@ -126,6 +145,15 @@ xlabel('SNR [dB]');
 ylabel('BLER');
 legend('AWGN LLR','BSC LLR');
 title(sprintf('Polar Code BLER Comparison (N=%d, K=%d)', N, K));
+
+figure;
+semilogy(SNR_dB_range, ber1, 'b-o','LineWidth',2); hold on;
+semilogy(SNR_dB_range, ber2, 'r-s','LineWidth',2);
+grid on;
+xlabel('SNR [dB]');
+ylabel('BER');
+legend('AWGN LLR','BSC LLR');
+title(sprintf('Polar Code BER Comparison (N=%d, K=%d)', N, K));
 
 %% Save
 savefig('BLER_AWGN_vs_BSC_multiSNR.fig');

@@ -1,10 +1,10 @@
 function main()
 tic;                  % start time
 %% Parameters
-N = 1024;
-K = 512;
+N = 4096;
+K = 128;
 R = K/N;                          % code rate
-L = 32;                            % List sizq (for SCL only)
+L = 2048;                            % List sizq (for SCL only)
 GA_CRC_Length = 0;
 IS_SC = false;
 seed = 42;
@@ -12,14 +12,14 @@ rng(seed);     % set the seed
 Is_Valid_Statistics = false(1,N);
 SNR_dB_range = 0:2:0.5;     
 EbN0_range = SNR_dB_range - 10*log10(R);
-target_BLER = 0.0001;
-min_errors = 100;
+target_BLER = 0.001;
+min_errors = 30;
 num_trials_per_snr = min_errors/target_BLER;  % Increase for more accuracy
 ber1 = zeros(size(SNR_dB_range));
 bler1 = zeros(size(SNR_dB_range));
 ber2 = zeros(size(SNR_dB_range));
 bler2 = zeros(size(SNR_dB_range));
-SNRdB = 4.4;
+SNRdB = 1.35;
 EbN0  = SNRdB - 10*log10(R);          % example Eb/N0 in dB
 
 %fprintf('Estimating frozen bits only once at SNR = 3 dB...\n');
@@ -40,40 +40,40 @@ EbN0  = SNRdB - 10*log10(R);          % example Eb/N0 in dB
 
 %frozen_bits = test(N, K, 3, num_trials)
 IS_AWGN = false;
-% [frozen_indicator, ber_vec, bit_order] = estimate_frozen_bits(N, K, target_BLER, min_errors, SNRdB, EbN0, IS_AWGN);
-% fprintf('Frozen indicator = %.1f dB...\n', frozen_indicator);
-% fprintf('BER vector= %.6f ...\n', ber_vec);
-% fprintf('Bit order = %.1f ...\n', bit_order);
-% fprintf('Simulating for Eb/N0 = %.1f dB...\n', EbN0);
-% check_validity = false;
-% if sum(ber_vec>(30/num_trials_per_snr))
-%     check_validity = true;
-% end
-% if check_validity == false
-%     error('Not enough statistics');
-% end
-% for Is_valid = 1:length(Is_Valid_Statistics)
-%     error_count = ber_vec(Is_valid) * num_trials_per_snr;
-%     if error_count > 30
-%         Is_Valid_Statistics(Is_valid) = true;
-%     end 
-% end 
-% %Logical masks
-% VALID_STATISTICS = sum(Is_Valid_Statistics);
-% frozen_mask = (frozen_indicator == 1);
-% info_mask = (frozen_indicator == 0);
-% %Logical mask of info‐bit positions
-% %1) Sum of BER over all info bits
-% sum_info_ber = sum( ber_vec(info_mask) );
-% 
-% %2) Highest (max) BER among info bits
-% max_info_ber = max( ber_vec(info_mask) );
-% min_frozen_ber = min( ber_vec(frozen_mask) );
-% save('SNR_4.4_BSC_HARD_1024.mat', 'ber_vec', 'bit_order', 'frozen_indicator', 'VALID_STATISTICS');
-%SCL_Frozen_Indexes_Numbers_Vec = SCL_Frozen_Bits(ber_vec, Is_Valid_Statistics,K, L, 'LLR', true);
+[frozen_indicator, ber_vec, bit_order] = estimate_frozen_bits(N, K, target_BLER, min_errors, SNRdB, EbN0, IS_AWGN);
+fprintf('Frozen indicator = %.1f dB...\n', frozen_indicator);
+fprintf('BER vector= %.6f ...\n', ber_vec);
+fprintf('Bit order = %.1f ...\n', bit_order);
+fprintf('Simulating for Eb/N0 = %.1f dB...\n', EbN0);
+check_validity = false;
+if sum(ber_vec>(30/num_trials_per_snr))
+    check_validity = true;
+end
+if check_validity == false
+    error('Not enough statistics');
+end
+for Is_valid = 1:length(Is_Valid_Statistics)
+    error_count = ber_vec(Is_valid) * num_trials_per_snr;
+    if error_count > 30
+        Is_Valid_Statistics(Is_valid) = true;
+    end 
+end 
+%Logical masks
+VALID_STATISTICS = sum(Is_Valid_Statistics);
+frozen_mask = (frozen_indicator == 1);
+info_mask = (frozen_indicator == 0);
+%Logical mask of info‐bit positions
+%1) Sum of BER over all info bits
+sum_info_ber = sum( ber_vec(info_mask) );
+
+%2) Highest (max) BER among info bits
+max_info_ber = max( ber_vec(info_mask) );
+min_frozen_ber = min( ber_vec(frozen_mask) );
+save('SNR_1.35_dB_BSC_HARD_4096.mat', 'ber_vec', 'bit_order', 'frozen_indicator', 'VALID_STATISTICS');
+% SCL_Frozen_Indexes_Numbers_Vec = SCL_Frozen_Bits(ber_vec, Is_Valid_Statistics,K, L, 'LLR', true);
 %save('EbN0_1.0_dB_AWGN_SCL_L=32_CRC=0_LLR.mat', 'ber_vec', 'bit_order', 'frozen_indicator','SCL_Frozen_Indexes_Numbers_Vec');
-%save('EbN0_-1_dB_BSC.mat', 'ber_vec', 'bit_order', 'frozen_indicator');
-% 
+% save('EbN0_-1_dB_BSC.mat', 'ber_vec', 'bit_order', 'frozen_indicator');
+
 
 %% Loop over SNR values
     for SNR = 1:length(SNR_dB_range)

@@ -17,14 +17,19 @@ function [Estimated_U,Estimated_L] = gArikan_BPSK_SCL_Decoder(L,GA_CRC_Length,Y,
             [LL0,LL1] = AWGN_BPSK_LL(Y, Sigma);
     
         case 'BSC'
-            % Hard decision
-            Y_hard = (Y < 0);
-    
-            % Crossover probability
-            p = qfunc(sqrt(2*R*EbN0_lin));
+            % % Hard decision
+            % Y_hard = (Y < 0);
+            % 
+            %   % Crossover probability
+            % p = qfunc(sqrt(2*R*EbN0_lin));
     
             % Your function
-            [LL0,LL1] = BSC_BPSK_LL(Y_hard,Sigma,SNR_dB);
+            [LL0, LL1] = BSC_BPSK_LL(Y, Sigma, SNR_dB); % Assuming this returns N x 1
+            
+            % Force to Row Vector (1 x N)
+            LL0 = LL0(:)'; 
+            LL1 = LL1(:)'; 
+
     end
     
     

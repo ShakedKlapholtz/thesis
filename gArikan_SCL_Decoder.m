@@ -139,8 +139,10 @@ function [Estimated_U,Indexes,Estimated_L0,Estimated_L1] = Find_Best_Paths(U,L,L
         temp_next_L = length(temp_LL);
 
         if(temp_next_L>L)
-            best_Indexes = find(temp_LL>=median(temp_LL));
-            best_Indexes = best_Indexes(1:L);
+            % best_Indexes = find(temp_LL>=median(temp_LL));
+            % best_Indexes = best_Indexes(1:L);
+            [~, sorted_idx] = sort(temp_LL, 'descend');
+            best_Indexes = sorted_idx(1:min(L, end));
         else
             best_Indexes = (1:temp_next_L)';
         end

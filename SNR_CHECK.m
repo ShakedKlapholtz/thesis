@@ -10,7 +10,7 @@ IS_SC = false ;
 GA_CRC_Length = 0 ;
 seed = 42;
 rng(seed);     % set the seed
-SNR_dB = 4.4;
+SNR_dB = 1.3;
 EbN0 = SNR_dB - 10*log10(R);
 target_BLER = 0.01;
 min_errors = 50;
@@ -26,7 +26,7 @@ frozen_mask = (frozen_indicator == 1);
 ber_sorted = sort(ber_vec);
 %ber_sorted = ber_vec(order);              % BER במיון יורד
 %plot_key_length_probability_from_sorted_ber(ber_sorted);
-pct_diff_list = []
+pct_diff_list = [];
 for sim = 1:num_simulations
     if mod(sim, 5) == 0
         fprintf('Trial %d/%d\n', sim, num_simulations);
@@ -46,7 +46,7 @@ for sim = 1:num_simulations
 
     % --- LLR
     %Lambda = AWGN_BPSK_LLR(Y, Sigma);
-    Lambda = BSC_BPSK_LLR_HARD(Y,EbN0);
+    Lambda = BSC_BPSK_LLR_HARD(Y,SNR_dB , Sigma);
     z = sign(Lambda);
     ber_vec = (bpsk_x ~= z);      % 1 = error, 0 = correct
     ber_pct = mean(ber_vec) * 100;

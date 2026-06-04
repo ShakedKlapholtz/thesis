@@ -1,15 +1,13 @@
 %% PARAMETERS
 N = 256;
-cascade_block = 7;
-I_4 = 3.8;
-p = 0.1; % Define the probability for the cascade
+cascade_block = 73;
+I_4 = 6.47;
+p = 0.01; % Define the probability for the cascade
 
-file_path_csv = "\\wsl.localhost\Ubuntu-22.04\home\shaked\shake-on-it\cascade_reconcile_p_0.10_256_runs.csv";
+file_path_csv = "\\wsl.localhost\Ubuntu-22.04\home\shaked\shake-on-it\cascade_reconcile_p_0.01_256_runs.csv";
 field_name    = 'reply_parity_bits';
 
-
-
-file_path_fig = "C:\Users\ASUS\Documents\MATLAB\Key_Length_256_SCL_L=32_-0.8_100_trials_BSC.fig";
+file_path_fig = "C:\Users\ASUS\Documents\MATLAB\Key_Length_SCL_128_4.4_100_trials_BSC_Hard_1024.mat.fig";
 
 %% ===============================
 %  LOAD CASCADE DATA (CSV)
@@ -58,7 +56,7 @@ edges_norm = linspace(0,1,N+1);
 % ===============================
 mean_polar_norm   = sum(binCenters_norm .* existingProb);
 mean_cascade_norm = mean(Exposure_cascade_norm);
-mean_cascade_theory = 1 - (p*I_4 + 1/cascade_block);
+mean_cascade_theory = (p*I_4 + 1/cascade_block);
 
 %% ===============================
 %  PLOT
@@ -83,19 +81,19 @@ histogram(Exposure_cascade_norm, edges_norm, ...
 % Mean lines
 xline(mean_polar_norm, '--b', ...
     sprintf('Mean Polar = %.3f', mean_polar_norm), ...
-    'LineWidth', 2);
+    'LineWidth', 2, 'DisplayName', 'Mean Polar');
 
 xline(mean_cascade_norm, '--r', ...
     sprintf('Mean Cascade = %.3f', mean_cascade_norm), ...
-    'LineWidth', 2);
+    'LineWidth', 2, 'DisplayName', 'Mean Cascade');
 
 xline(mean_cascade_theory, '--g', ...
     sprintf('Mean Cascade Theory = %.3f', mean_cascade_theory), ...
-    'LineWidth', 2);
+    'LineWidth', 2, 'DisplayName', 'Mean Cascade in theory');
 
 xlabel('Relative Exposure');
 ylabel('Probability');
-title('Relative Exposure Distribution (Polar vs Cascade)');
+title(sprintf('Relative Exposure Distribution (N=%d, p=%.2f)', N, p));
 legend show;
 grid on;
 hold off;
